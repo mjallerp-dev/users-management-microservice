@@ -1,20 +1,19 @@
 services:
-  mysql:
-    image: mysql:8.4
+  postgres:
+    image: postgres:16
     environment:
-      MYSQL_DATABASE: crud_usuarios
-      MYSQL_USER: users_app
-      MYSQL_PASSWORD: local_users_password
-      MYSQL_ROOT_PASSWORD: local_root_password
+      POSTGRES_DB: pgarticlesdb
+      POSTGRES_USER: users_app
+      POSTGRES_PASSWORD: local_users_password
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mysql-data:/var/lib/mysql
+      - postgres-data:/var/lib/postgresql/data
       - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
     healthcheck:
       test:
         - CMD-SHELL
-        - mysqladmin ping --host=127.0.0.1 --user=root --password=$${MYSQL_ROOT_PASSWORD}
+        - pg_isready --username=$${POSTGRES_USER} --dbname=$${POSTGRES_DB}
       interval: 5s
       timeout: 5s
       retries: 20
@@ -28,12 +27,12 @@ services:
     image: users-management-api:local
     environment:
       PORT: "8080"
-      DB_HOST: mysql
-      DB_PORT: "3306"
-      DB_NAME: crud_usuarios
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: pgarticlesdb
       DB_USERNAME: users_app
       DB_PASSWORD: local_users_password
-      DB_SSL_MODE: DISABLED
+      DB_SSL_MODE: disable
       SMTP_HOST: smtp.gmail.com
       SMTP_PORT: "587"
       SMTP_USERNAME: ${SMTP_USERNAME:-}
@@ -45,9 +44,9 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
     restart: unless-stopped
 
 volumes:
-  mysql-data:
+  postgres-data:

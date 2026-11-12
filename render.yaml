@@ -12,13 +12,13 @@ services:
       - key: DB_PORT
         sync: false
       - key: DB_NAME
-        value: crud_usuarios
+        value: pgarticlesdb
       - key: DB_USERNAME
         sync: false
       - key: DB_PASSWORD
         sync: false
       - key: DB_SSL_MODE
-        value: REQUIRED
+        value: require
       - key: SMTP_HOST
         value: smtp.gmail.com
       - key: SMTP_PORT

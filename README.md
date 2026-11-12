@@ -13,7 +13,7 @@ Spring es el único *composition root*: `Main` inicia el contexto y las dependen
 {"status":"UP","name":"users-management","version":"2.2.0"}
 ```
 
-Indica que la API responde; no comprueba MySQL ni el proveedor de correo.
+Indica que la API responde; no comprueba PostgreSQL ni el proveedor de correo.
 
 ```bash
 ./mvnw clean test
@@ -21,6 +21,40 @@ Indica que la API responde; no comprueba MySQL ni el proveedor de correo.
 ```
 
 En Windows se puede utilizar `mvnw.cmd`.
+
+## Base de datos (PostgreSQL)
+
+La persistencia usa PostgreSQL mediante JDBC (`UserRepositoryPostgreSQL`). La tabla
+`users` es la misma que la del proyecto PHP `hexagonal-ddd-example-php`, por lo que
+ambas aplicaciones pueden compartir la base de datos.
+
+| Variable | Valor por defecto | Descripción |
+|---|---|---|
+| `DB_HOST` | `localhost` | Servidor PostgreSQL |
+| `DB_PORT` | `5432` | Puerto |
+| `DB_NAME` | `pgarticlesdb` | Base de datos |
+| `DB_USERNAME` | `postgres` | Usuario |
+| `DB_PASSWORD` | *(vacío)* | Contraseña |
+| `DB_SSL_MODE` | `prefer` | `sslmode` del driver: `disable`, `prefer`, `require`, `verify-full`… Azure Database for PostgreSQL exige `require` o superior. |
+
+Para crear el esquema en un servidor existente:
+
+```bash
+psql -h HOST -U USUARIO -d postgres     -c "CREATE DATABASE pgarticlesdb;"
+psql -h HOST -U USUARIO -d pgarticlesdb -f src/main/resources/schema.sql
+```
+
+El script es idempotente y crea el administrador inicial `admin@example.com`
+(contraseña `Admin1234!`) solo si no existe. Cámbiala tras el primer inicio de sesión.
+
+Para levantar PostgreSQL y la API en local con Docker:
+
+```bash
+docker compose up -d --build
+```
+
+El contenedor de PostgreSQL ejecuta `schema.sql` automáticamente la primera vez
+que se crea su volumen.
 
 ## Despliegue en Render
 
@@ -31,8 +65,10 @@ automático de cada commit que llegue a la rama `main`.
 2. Completar en el panel los secretos marcados como requeridos: `DB_HOST`,
    `DB_USERNAME`, `DB_PASSWORD`, `SMTP_USERNAME`, `SMTP_PASSWORD` y
    `SMTP_FROM_ADDRESS`.
-3. Usar una instancia MySQL accesible desde Internet o desde la red privada de
-   Render y ejecutar `src/main/resources/schema.sql` una vez para crear el esquema.
+3. Usar una instancia PostgreSQL accesible desde Internet o desde la red privada de
+   Render (por ejemplo, Azure Database for PostgreSQL, permitiendo en su firewall
+   las IP de salida de Render) y ejecutar `src/main/resources/schema.sql` una vez
+   para crear el esquema. `DB_SSL_MODE` se define como `require`.
 4. Desplegar el Blueprint. La API quedará disponible en el subdominio
    `onrender.com` asignado por Render y Swagger UI en `/swagger-ui.html`.
 
