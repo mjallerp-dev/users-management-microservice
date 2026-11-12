@@ -16,6 +16,22 @@ CREATE TABLE IF NOT EXISTS users (
     CONSTRAINT uq_users_email UNIQUE (email)
 );
 
+CREATE TABLE IF NOT EXISTS articles (
+    id             VARCHAR(36)    PRIMARY KEY,
+    description    VARCHAR(255)   NOT NULL,
+    provider       VARCHAR(100)   NOT NULL,
+    brand          VARCHAR(100)   NOT NULL,
+    model          VARCHAR(100)   NOT NULL,
+    category       VARCHAR(50)    NOT NULL,
+    store          VARCHAR(100)   NOT NULL,
+    quantity       INT            NOT NULL,
+    purchase_price DECIMAL(12, 2) NOT NULL,
+    sale_price     DECIMAL(12, 2) NOT NULL,
+    iva            DECIMAL(5, 2)  NOT NULL,
+    created_at     TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ    NOT NULL DEFAULT NOW()
+);
+
 -- Usuario administrador inicial (password: Admin1234!)
 INSERT INTO users (id, name, email, password, role, status)
 VALUES (
