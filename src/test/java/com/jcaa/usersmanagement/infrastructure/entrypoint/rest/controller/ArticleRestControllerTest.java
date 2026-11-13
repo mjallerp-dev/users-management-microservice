@@ -1,5 +1,6 @@
 package com.jcaa.usersmanagement.infrastructure.entrypoint.rest.controller;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -20,6 +21,9 @@ import com.jcaa.usersmanagement.application.service.dto.command.DeleteArticleCom
 import com.jcaa.usersmanagement.application.service.dto.command.UpdateArticleCommand;
 import com.jcaa.usersmanagement.application.service.dto.query.GetArticleByIdQuery;
 import com.jcaa.usersmanagement.domain.enums.ArticleCategory;
+import com.jcaa.usersmanagement.domain.exception.ArticleAlreadyExistsException;
+import com.jcaa.usersmanagement.domain.exception.ArticleNotFoundException;
+import com.jcaa.usersmanagement.domain.exception.InvalidArticleCategoryException;
 import com.jcaa.usersmanagement.domain.model.ArticleModel;
 import com.jcaa.usersmanagement.domain.valueobject.ArticleBrand;
 import com.jcaa.usersmanagement.domain.valueobject.ArticleDescription;
@@ -269,5 +273,146 @@ class ArticleRestControllerTest {
                 .content(VALID_BODY.formatted(ID)))
         .andExpect(status().isUnauthorized());
     verifyNoInteractions(createArticleUseCase);
+  }
+
+  @Test
+  @WithMockUser(roles = "MEMBER")
+  @DisplayName("GET /api/articles/{id} debe responder 404 cuando el artículo no existe")
+  void shouldReturnNotFoundWhenArticleDoesNotExist() throws Exception {
+    when(getArticleByIdUseCase.execute(any()))
+        .thenThrow(ArticleNotFoundException.becauseIdWasNotFound("a-404"));
+
+    mockMvc
+        .perform(get("/api/articles/{id}", "a-404"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.status").value(404))
+        .andExpect(jsonPath("$.message").value("The article with id 'a-404' was not found."));
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  @DisplayName("PUT /api/articles/{id} debe responder 404 cuando el artículo no existe")
+  void shouldReturnNotFoundWhenUpdatingMissingArticle() throws Exception {
+    final String request =
+        """
+        {
+          "description": "Portátil 15 pulgadas",
+          "provider": "Proveedor Demo",
+          "brand": "Lenovo",
+          "model": "ThinkPad E14",
+          "category": "electronica",
+          "store": "Tienda Centro",
+          "quantity": 5,
+          "purchasePrice": 2500000.5,
+          "salePrice": 3200000,
+          "iva": 19
+        }
+        """;
+    when(updateArticleUseCase.execute(any()))
+        .thenThrow(ArticleNotFoundException.becauseIdWasNotFound("a-404"));
+
+    mockMvc
+        .perform(
+            put("/api/articles/{id}", "a-404")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(request))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.status").value(404));
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  @DisplayName("POST /api/articles debe responder 409 cuando el id ya existe")
+  void shouldReturnConflictWhenArticleAlreadyExists() throws Exception {
+    when(createArticleUseCase.execute(any()))
+        .thenThrow(ArticleAlreadyExistsException.becauseIdAlreadyExists(ID));
+
+    mockMvc
+        .perform(
+            post("/api/articles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(VALID_BODY.formatted(ID)))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.status").value(409))
+        .andExpect(jsonPath("$.message").value("An article with id 'a-001' already exists."));
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  @DisplayName("POST /api/articles debe responder 400 cuando la categoría no existe")
+  void shouldReturnBadRequestWhenCategoryIsInvalid() throws Exception {
+    when(createArticleUseCase.execute(any()))
+        .thenThrow(InvalidArticleCategoryException.becauseValueIsInvalid("juguetes"));
+
+    mockMvc
+        .perform(
+            post("/api/articles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(VALID_BODY.formatted(ID)))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.message").value("The article category 'juguetes' is not valid."));
+  }
+
+  @Test
+  @WithMockUser(roles = "REVIEWER")
+  @DisplayName("GET /api/articles debe permitir el acceso a un REVIEWER")
+  void shouldAllowReviewerToGetArticles() throws Exception {
+    when(getAllArticlesUseCase.execute()).thenReturn(List.of());
+
+    mockMvc.perform(get("/api/articles")).andExpect(status().isOk());
+  }
+
+  @Test
+  @WithMockUser(roles = "MEMBER")
+  @DisplayName("POST /api/articles debe rechazar un MEMBER")
+  void shouldRejectMemberCreatingArticle() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/articles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(VALID_BODY.formatted(ID)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.status").value(403));
+    verifyNoInteractions(createArticleUseCase);
+  }
+
+  @Test
+  @WithMockUser(roles = "REVIEWER")
+  @DisplayName("PUT /api/articles/{id} debe rechazar un REVIEWER")
+  void shouldRejectReviewerUpdatingArticle() throws Exception {
+    final String request =
+        """
+        {
+          "description": "Portátil 15 pulgadas",
+          "provider": "Proveedor Demo",
+          "brand": "Lenovo",
+          "model": "ThinkPad E14",
+          "category": "electronica",
+          "store": "Tienda Centro",
+          "quantity": 5,
+          "purchasePrice": 2500000.5,
+          "salePrice": 3200000,
+          "iva": 19
+        }
+        """;
+
+    mockMvc
+        .perform(
+            put("/api/articles/{id}", ID).contentType(MediaType.APPLICATION_JSON).content(request))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.status").value(403));
+    verifyNoInteractions(updateArticleUseCase);
+  }
+
+  @Test
+  @WithMockUser(roles = "MEMBER")
+  @DisplayName("DELETE /api/articles/{id} debe rechazar un MEMBER")
+  void shouldRejectMemberDeletingArticle() throws Exception {
+    mockMvc
+        .perform(delete("/api/articles/{id}", ID))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.status").value(403));
+    verifyNoInteractions(deleteArticleUseCase);
   }
 }
