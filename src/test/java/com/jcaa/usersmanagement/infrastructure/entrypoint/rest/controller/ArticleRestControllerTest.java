@@ -41,6 +41,7 @@ import com.jcaa.usersmanagement.infrastructure.security.RestAccessDeniedHandler;
 import com.jcaa.usersmanagement.infrastructure.security.RestAuthenticationEntryPoint;
 import com.jcaa.usersmanagement.infrastructure.security.SecurityConfig;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -248,6 +249,51 @@ class ArticleRestControllerTest {
     mockMvc
         .perform(
             post("/api/articles").contentType(MediaType.APPLICATION_JSON).content(invalidRequest))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.status").value(400));
+    verifyNoInteractions(createArticleUseCase);
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  @DisplayName("POST /api/articles debe responder 400 cuando el JSON está mal formado")
+  void shouldReturnBadRequestWhenJsonIsMalformed() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/articles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"id\": \"a-001\", \"description\": "))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(
+            jsonPath("$.message").value("El cuerpo de la solicitud no es un JSON válido."));
+    verifyNoInteractions(createArticleUseCase);
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  @DisplayName("POST /api/articles debe responder 400 cuando un número llega como texto")
+  void shouldReturnBadRequestWhenNumberHasWrongType() throws Exception {
+    final String request =
+        VALID_BODY.formatted(ID).replace("\"quantity\": 5", "\"quantity\": \"cinco\"");
+
+    mockMvc
+        .perform(post("/api/articles").contentType(MediaType.APPLICATION_JSON).content(request))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.status").value(400));
+    verifyNoInteractions(createArticleUseCase);
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  @DisplayName("POST /api/articles debe responder 400 cuando el cuerpo no es UTF-8 válido")
+  void shouldReturnBadRequestWhenBodyIsNotValidUtf8() throws Exception {
+    // "Portátil" codificado en ISO-8859-1: la 'á' es el byte 0xE1, inválido como UTF-8
+    final byte[] latin1Body = VALID_BODY.formatted(ID).getBytes(StandardCharsets.ISO_8859_1);
+
+    mockMvc
+        .perform(
+            post("/api/articles").contentType(MediaType.APPLICATION_JSON).content(latin1Body))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.status").value(400));
     verifyNoInteractions(createArticleUseCase);
