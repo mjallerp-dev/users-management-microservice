@@ -10,6 +10,7 @@ import com.jcaa.usersmanagement.infrastructure.adapter.persistence.exception.Per
 import com.jcaa.usersmanagement.infrastructure.entrypoint.rest.dto.response.ApiErrorResponse;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -70,6 +71,13 @@ public class GlobalExceptionHandler {
             .map(e -> e.getField() + ": " + e.getDefaultMessage())
             .collect(Collectors.joining(", "));
     return new ApiErrorResponse(HttpStatus.BAD_REQUEST.value(), message);
+  }
+
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  @ResponseStatus(HttpStatus.BAD_REQUEST)
+  public ApiErrorResponse handleMessageNotReadable(final HttpMessageNotReadableException ignored) {
+    return new ApiErrorResponse(
+        HttpStatus.BAD_REQUEST.value(), "El cuerpo de la solicitud no es un JSON válido.");
   }
 
   @ExceptionHandler(DomainException.class)
