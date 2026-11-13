@@ -17,6 +17,8 @@ public class SecurityConfig {
   private static final String AUTH_LOGIN_PATH = "/api/auth/login";
   private static final String USERS_PATH = "/api/users";
   private static final String USERS_DETAIL_PATH = "/api/users/**";
+  private static final String ARTICLES_PATH = "/api/articles";
+  private static final String ARTICLES_DETAIL_PATH = "/api/articles/**";
   private static final String[] OPEN_API_PATHS = {
     "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**"
   };
@@ -54,6 +56,14 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.PUT, USERS_DETAIL_PATH)
                     .hasRole("ADMIN")
                     .requestMatchers(HttpMethod.DELETE, USERS_DETAIL_PATH)
+                    .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.GET, ARTICLES_PATH, ARTICLES_DETAIL_PATH)
+                    .hasAnyRole("ADMIN", "REVIEWER", "MEMBER")
+                    .requestMatchers(HttpMethod.POST, ARTICLES_PATH)
+                    .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.PUT, ARTICLES_DETAIL_PATH)
+                    .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.DELETE, ARTICLES_DETAIL_PATH)
                     .hasRole("ADMIN")
                     .anyRequest()
                     .authenticated())
