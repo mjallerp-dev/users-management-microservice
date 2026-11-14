@@ -23,7 +23,8 @@ siguiendo arquitectura hexagonal (puertos y adaptadores) y Domain-Driven Design.
 10. [Correo electrónico](#correo-electrónico)
 11. [Pruebas con Postman](#pruebas-con-postman)
 12. [Despliegue en Render](#despliegue-en-render)
-13. [Control de versiones](#control-de-versiones)
+13. [Integración y despliegue continuo](#integración-y-despliegue-continuo)
+14. [Control de versiones](#control-de-versiones)
 
 ---
 
@@ -38,6 +39,7 @@ siguiendo arquitectura hexagonal (puertos y adaptadores) y Domain-Driven Design.
 | Documentación | OpenAPI 3 / Swagger UI (springdoc) |
 | Pruebas | JUnit 5, Mockito, MockMvc, JaCoCo, Postman / Newman |
 | Infraestructura | Docker, Docker Compose, Render, Azure Database for PostgreSQL |
+| Integración continua | GitHub Actions |
 
 ## Arquitectura
 
@@ -366,9 +368,11 @@ npx newman run postman/users-management-api.postman_collection.json \
 
 ## Despliegue en Render
 
-[`render.yaml`](render.yaml) define el servicio web (Docker, plan gratuito), el chequeo de salud en
-`/health` y el despliegue automático de cada commit en `main`. El plan gratuito de Render **bloquea
-los puertos SMTP**, por eso el despliegue usa Brevo (`EMAIL_PROVIDER=brevo`).
+[`render.yaml`](render.yaml) define el servicio web (Docker, plan gratuito) y el chequeo de salud en
+`/health`. El despliegue automático de Render está desactivado (`autoDeployTrigger: "off"`): los
+despliegues los dispara GitHub Actions solo cuando los tests pasan (ver
+[Integración y despliegue continuo](#integración-y-despliegue-continuo)). El plan gratuito de Render
+**bloquea los puertos SMTP**, por eso el despliegue usa Brevo (`EMAIL_PROVIDER=brevo`).
 
 1. Prepara la base de datos con `schema.sql` (por ejemplo en Azure Database for PostgreSQL).
 2. En Render: **New → Blueprint** y selecciona este repositorio.
@@ -388,6 +392,8 @@ los puertos SMTP**, por eso el despliegue usa Brevo (`EMAIL_PROVIDER=brevo`).
    firewall de la base de datos; en Azure, un `/24` va de `x.x.x.0` a `x.x.x.255`. Si falta este paso,
    el log muestra `Connect timed out` y el despliegue falla.
 5. Despliega y verifica `/health` y `/swagger-ui.html` en la URL asignada (`https://<servicio>.onrender.com`).
+   El primer despliegue lo hace Render al crear el Blueprint; los siguientes los dispara GitHub Actions
+   (o, a mano, **Manual Deploy → Deploy latest commit** en Render).
 
 En el plan gratuito el servicio se suspende tras unos 15 minutos sin uso: la primera petición
 posterior tarda entre 30 y 60 segundos.
@@ -395,11 +401,35 @@ posterior tarda entre 30 y 60 segundos.
 Las credenciales nunca deben guardarse en `application.properties`, `render.yaml` ni en el
 repositorio: se configuran como variables de entorno o secretos del servicio.
 
+## Integración y despliegue continuo
+
+El workflow [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml) de GitHub Actions tiene dos
+trabajos:
+
+| Trabajo | Cuándo se ejecuta | Qué hace |
+|---|---|---|
+| **Compilar y ejecutar tests** | En cada `push` a cualquier rama, en cada pull request hacia `main` y a mano (*Run workflow*) | Compila con JDK 17 y ejecuta todos los tests (`mvn clean verify`). Publica el reporte de cobertura (`jacoco-report`) y, si algo falla, los reportes de los tests (`surefire-reports`) como artefactos durante 7 días. |
+| **Desplegar en Render** | Solo en `push` a `main` y solo si el trabajo anterior pasó | Llama al *Deploy Hook* de Render para desplegar el commit. |
+
+Así, una versión con tests fallidos nunca llega a producción.
+
+**Configuración (una sola vez):**
+
+1. En Render: tu servicio → **Settings → Deploy Hook** → copia la URL.
+2. En GitHub: el repositorio → **Settings → Secrets and variables → Actions → New repository secret**,
+   con el nombre `RENDER_DEPLOY_HOOK_URL` y la URL como valor.
+
+La URL del Deploy Hook permite disparar despliegues: guárdala solo como secreto. Si falta el
+secreto, el trabajo de despliegue falla con un mensaje que lo indica.
+
+Los resultados se ven en la pestaña **Actions** del repositorio; cada ejecución incluye los artefactos
+para descargar, y los despliegues aparecen en el entorno **production**.
+
 ## Control de versiones
 
 - **Ramas:** una rama por capa y módulo, con el prefijo del tipo de cambio: `feature/article-domain`,
   `feature/article-application`, `feature/article-infrastructure`; `chore/...` para configuración y
-  herramientas.
+  herramientas (por ejemplo `chore/github-actions`).
 - **Commits:** `tipo(módulo-capa): descripción en inglés`, por ejemplo
   `feat(article-domain): add article value objects` o `test(article-infrastructure): add article rest controller tests`,
   con un máximo de 10 archivos por commit.
