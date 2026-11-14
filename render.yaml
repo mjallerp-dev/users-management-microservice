@@ -10,7 +10,7 @@ services:
       - key: DB_HOST
         sync: false
       - key: DB_PORT
-        sync: false
+        value: "5432"
       - key: DB_NAME
         value: pgarticlesdb
       - key: DB_USERNAME
@@ -19,13 +19,9 @@ services:
         sync: false
       - key: DB_SSL_MODE
         value: require
-      - key: SMTP_HOST
-        value: smtp.gmail.com
-      - key: SMTP_PORT
-        value: "587"
-      - key: SMTP_USERNAME
-        sync: false
-      - key: SMTP_PASSWORD
+      - key: EMAIL_PROVIDER
+        value: brevo
+      - key: BREVO_API_KEY
         sync: false
       - key: SMTP_FROM_ADDRESS
         sync: false
@@ -35,3 +31,5 @@ services:
         generateValue: true
       - key: JWT_EXPIRATION_SECONDS
         value: "900"
+      - key: JAVA_TOOL_OPTIONS
+        value: "-XX:MaxRAMPercentage=75"
