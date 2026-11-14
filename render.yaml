@@ -4,7 +4,7 @@ services:
     runtime: docker
     plan: free
     branch: main
-    autoDeployTrigger: commit
+    autoDeployTrigger: "off"
     healthCheckPath: /health
     envVars:
       - key: DB_HOST
