@@ -1,0 +1,1062 @@
+{
+  "info": {
+    "_postman_id": "24b9e106-b4e4-5347-b4a7-94e5fa321449",
+    "name": "Users Management API",
+    "description": "Pruebas de la API users-management (Spring Boot, hexagonal + DDD).\n\n1. Importa la colección y un entorno (Local, Apache o Render).\n2. Selecciona el entorno y completa `adminEmail` y `adminPassword`.\n3. Ejecuta **Run collection** en el orden de las carpetas.\n\nEl login guarda el token automáticamente y todas las peticiones lo heredan.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "articleId",
+      "value": ""
+    },
+    {
+      "key": "memberId",
+      "value": ""
+    },
+    {
+      "key": "memberEmail",
+      "value": ""
+    },
+    {
+      "key": "memberPassword",
+      "value": ""
+    },
+    {
+      "key": "memberToken",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health",
+      "description": "Estado del servicio (público).",
+      "item": [
+        {
+          "name": "Health check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"La API responde (200)\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Estado UP\", () => pm.expect(pm.response.json().status).to.eql(\"UP\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Auth",
+      "description": "Login del ADMIN. Guarda el token en la variable de entorno `token`, que heredan las demás peticiones.",
+      "item": [
+        {
+          "name": "Login con credenciales inválidas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Credenciales rechazadas (401)\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Cuerpo de error con status 401\", () => pm.expect(pm.response.json().status).to.eql(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"clave-incorrecta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Login ADMIN",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Login correcto (200)\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Devuelve un token Bearer\", () => {",
+                  "  pm.expect(body.accessToken).to.be.a(\"string\").and.not.empty;",
+                  "  pm.expect(body.tokenType).to.eql(\"Bearer\");",
+                  "});",
+                  "pm.environment.set(\"token\", body.accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Articles",
+      "description": "CRUD de artículos como ADMIN y respuestas de error. El id del artículo se genera en cada ejecución para que la colección se pueda correr varias veces.",
+      "item": [
+        {
+          "name": "Listar artículos sin token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Requiere autenticación (401)\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Cuerpo de error con status 401\", () => pm.expect(pm.response.json().status).to.eql(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Crear artículo",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"articleId\", \"art-\" + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Artículo creado (201)\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Devuelve los datos del artículo\", () => {",
+                  "  pm.expect(body.id).to.eql(pm.collectionVariables.get(\"articleId\"));",
+                  "  pm.expect(body.category).to.eql(\"electronica\");",
+                  "  pm.expect(body.quantity).to.eql(5);",
+                  "  pm.expect(body.purchasePrice).to.eql(2500000.5);",
+                  "  pm.expect(body.iva).to.eql(19);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{articleId}}\",\n  \"description\": \"Portátil 14 pulgadas\",\n  \"provider\": \"Proveedor Demo\",\n  \"brand\": \"Lenovo\",\n  \"model\": \"ThinkPad E14\",\n  \"category\": \"electronica\",\n  \"store\": \"Tienda Centro\",\n  \"quantity\": 5,\n  \"purchasePrice\": 2500000.5,\n  \"salePrice\": 3200000,\n  \"iva\": 19\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Crear artículo con id repetido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Id duplicado rechazado (409)\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Cuerpo de error con status 409\", () => pm.expect(pm.response.json().status).to.eql(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{articleId}}\",\n  \"description\": \"Portátil 14 pulgadas\",\n  \"provider\": \"Proveedor Demo\",\n  \"brand\": \"Lenovo\",\n  \"model\": \"ThinkPad E14\",\n  \"category\": \"electronica\",\n  \"store\": \"Tienda Centro\",\n  \"quantity\": 5,\n  \"purchasePrice\": 2500000.5,\n  \"salePrice\": 3200000,\n  \"iva\": 19\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Crear artículo con categoría inexistente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Categoría rechazada (400)\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Cuerpo de error con status 400\", () => pm.expect(pm.response.json().status).to.eql(400));",
+                  "pm.test(\"Mensaje de categoría inválida\", () => pm.expect(pm.response.json().message).to.include(\"juguetes\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Portátil 14 pulgadas\",\n  \"provider\": \"Proveedor Demo\",\n  \"brand\": \"Lenovo\",\n  \"model\": \"ThinkPad E14\",\n  \"category\": \"juguetes\",\n  \"store\": \"Tienda Centro\",\n  \"quantity\": 5,\n  \"purchasePrice\": 2500000.5,\n  \"salePrice\": 3200000,\n  \"iva\": 19,\n  \"id\": \"{{articleId}}-cat\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Crear artículo con datos inválidos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Validación rechazada (400)\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Cuerpo de error con status 400\", () => pm.expect(pm.response.json().status).to.eql(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"\",\n  \"description\": \"TV\",\n  \"provider\": \"AB\",\n  \"brand\": \"LG\",\n  \"model\": \"X1\",\n  \"category\": \"\",\n  \"store\": \"T1\",\n  \"quantity\": -1,\n  \"purchasePrice\": 0,\n  \"salePrice\": null,\n  \"iva\": 150\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Listar artículos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Lista obtenida (200)\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Incluye el artículo creado\", () => {",
+                  "  const ids = pm.response.json().map(a => a.id);",
+                  "  pm.expect(ids).to.include(pm.collectionVariables.get(\"articleId\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consultar artículo por id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Artículo encontrado (200)\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Es el artículo pedido\", () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get(\"articleId\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/{{articleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "{{articleId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Actualizar artículo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Artículo actualizado (200)\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Devuelve los datos nuevos\", () => {",
+                  "  pm.expect(body.description).to.eql(\"Portátil 15 pulgadas\");",
+                  "  pm.expect(body.quantity).to.eql(3);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/{{articleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "{{articleId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Portátil 15 pulgadas\",\n  \"provider\": \"Proveedor Demo\",\n  \"brand\": \"Lenovo\",\n  \"model\": \"ThinkPad E15\",\n  \"category\": \"electronica\",\n  \"store\": \"Tienda Centro\",\n  \"quantity\": 3,\n  \"purchasePrice\": 2600000,\n  \"salePrice\": 3300000,\n  \"iva\": 19\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Actualizar artículo inexistente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Artículo no encontrado (404)\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Cuerpo de error con status 404\", () => pm.expect(pm.response.json().status).to.eql(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/no-existe",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "no-existe"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Portátil 15 pulgadas\",\n  \"provider\": \"Proveedor Demo\",\n  \"brand\": \"Lenovo\",\n  \"model\": \"ThinkPad E15\",\n  \"category\": \"electronica\",\n  \"store\": \"Tienda Centro\",\n  \"quantity\": 3,\n  \"purchasePrice\": 2600000,\n  \"salePrice\": 3300000,\n  \"iva\": 19\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Roles",
+      "description": "Flujo de un usuario MEMBER: se registra (queda PENDING), el ADMIN lo activa y solo puede consultar artículos. Nota: si el SMTP está configurado, el registro y la activación envían correos al email de prueba.",
+      "item": [
+        {
+          "name": "Registrar usuario MEMBER",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const suffix = Date.now();",
+                  "pm.collectionVariables.set(\"memberId\", \"usr-postman-\" + suffix);",
+                  "pm.collectionVariables.set(\"memberEmail\", \"postman.\" + suffix + \"@example.com\");",
+                  "pm.collectionVariables.set(\"memberPassword\", \"Postman1234\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Usuario registrado (201)\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Queda en estado PENDING\", () => pm.expect(pm.response.json().status).to.eql(\"PENDING\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{memberId}}\",\n  \"name\": \"Usuario Postman\",\n  \"email\": \"{{memberEmail}}\",\n  \"password\": \"{{memberPassword}}\",\n  \"role\": \"MEMBER\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Login MEMBER pendiente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Cuenta PENDING rechazada (401)\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Cuerpo de error con status 401\", () => pm.expect(pm.response.json().status).to.eql(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{memberEmail}}\",\n  \"password\": \"{{memberPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "ADMIN activa al MEMBER",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Usuario activado (200)\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Queda ACTIVE con rol MEMBER\", () => {",
+                  "  pm.expect(pm.response.json().status).to.eql(\"ACTIVE\");",
+                  "  pm.expect(pm.response.json().role).to.eql(\"MEMBER\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{memberId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{memberId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Usuario Postman\",\n  \"email\": \"{{memberEmail}}\",\n  \"role\": \"MEMBER\",\n  \"status\": \"ACTIVE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Login MEMBER",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Login correcto (200)\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"memberToken\", pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{memberEmail}}\",\n  \"password\": \"{{memberPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "MEMBER lista artículos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"MEMBER puede consultar (200)\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "MEMBER crea artículo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"MEMBER no puede crear (403)\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Cuerpo de error con status 403\", () => pm.expect(pm.response.json().status).to.eql(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Portátil 14 pulgadas\",\n  \"provider\": \"Proveedor Demo\",\n  \"brand\": \"Lenovo\",\n  \"model\": \"ThinkPad E14\",\n  \"category\": \"electronica\",\n  \"store\": \"Tienda Centro\",\n  \"quantity\": 5,\n  \"purchasePrice\": 2500000.5,\n  \"salePrice\": 3200000,\n  \"iva\": 19,\n  \"id\": \"{{articleId}}-member\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "MEMBER elimina artículo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"MEMBER no puede eliminar (403)\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Cuerpo de error con status 403\", () => pm.expect(pm.response.json().status).to.eql(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/{{articleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "{{articleId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Users",
+      "description": "Consultas de usuarios como ADMIN.",
+      "item": [
+        {
+          "name": "Listar usuarios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Lista obtenida (200)\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Incluye al MEMBER de prueba\", () => {",
+                  "  const ids = pm.response.json().map(u => u.id);",
+                  "  pm.expect(ids).to.include(pm.collectionVariables.get(\"memberId\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consultar usuario por id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Usuario encontrado (200)\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{memberId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{memberId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Limpieza",
+      "description": "Elimina los datos creados por la colección.",
+      "item": [
+        {
+          "name": "Eliminar artículo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Artículo eliminado (204)\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/{{articleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "{{articleId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consultar artículo eliminado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Artículo ya no existe (404)\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Cuerpo de error con status 404\", () => pm.expect(pm.response.json().status).to.eql(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/articles/{{articleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "articles",
+                "{{articleId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Eliminar usuario MEMBER",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Usuario eliminado (204)\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{memberId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{memberId}}"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
